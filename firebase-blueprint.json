@@ -1,0 +1,72 @@
+{
+  "entities": {
+    "meritRecord": {
+      "title": "MeritRecord",
+      "description": "Represents an e-admission merit list entry for selection rounds or spot/waiting round",
+      "type": "object",
+      "properties": {
+        "barcodeNumber": { "type": "string", "maxLength": 64, "description": "SAMS Odisha CAF barcode number" },
+        "name": { "type": "string", "maxLength": 128, "description": "Student full name" },
+        "mobile": { "type": "string", "maxLength": 20, "description": "Student mobile contact number" },
+        "email": { "type": "string", "maxLength": 128, "description": "Student email address" },
+        "stream": { "type": "string", "maxLength": 64, "description": "UG Academic stream: Arts, Science, Commerce, Self-Financing" },
+        "subject": { "type": "string", "maxLength": 64, "description": "Honours subject allotted" },
+        "roundType": { "type": "string", "maxLength": 64, "description": "Selection or Spot round type identifier" },
+        "category": { "type": "string", "maxLength": 32, "description": "Reservation quota: GEN, SC, ST, SEBC, PH, ESM" },
+        "percentage": { "type": "number", "description": "+2 aggregate percentage" },
+        "rank": { "type": "number", "description": "Merit rank in stream/subject" },
+        "status": { "type": "string", "maxLength": 64, "description": "Admission status: Selected, Provisionally Admitted, Waiting, Document Verification Pending, Confirmed" },
+        "reportingDate": { "type": "string", "maxLength": 64, "description": "Physical reporting date for verification" },
+        "reportingTime": { "type": "string", "maxLength": 64, "description": "Reporting time window" },
+        "notes": { "type": "string", "maxLength": 500, "description": "Special remarks or instructions" },
+        "updatedAt": { "type": "string", "maxLength": 64, "description": "Timestamp ISO string of last edit" }
+      },
+      "required": ["barcodeNumber", "name", "mobile", "email", "stream", "subject", "roundType", "status"]
+    },
+    "studentApplication": {
+      "title": "StudentApplication",
+      "description": "Student admission application with uploaded verification documents",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "maxLength": 128, "description": "Firebase Auth UID" },
+        "barcodeNumber": { "type": "string", "maxLength": 64, "description": "SAMS Odisha CAF barcode number" },
+        "name": { "type": "string", "maxLength": 128, "description": "Applicant full name" },
+        "mobile": { "type": "string", "maxLength": 20, "description": "Contact mobile number" },
+        "email": { "type": "string", "maxLength": 128, "description": "Registered email address" },
+        "stream": { "type": "string", "maxLength": 64, "description": "Applied UG Stream" },
+        "subject": { "type": "string", "maxLength": 64, "description": "Applied Honours Subject" },
+        "status": { "type": "string", "maxLength": 64, "description": "Current tracking status" },
+        "documents": { "type": "object", "description": "Map of document name to upload details" },
+        "feeStatus": { "type": "string", "maxLength": 32, "description": "Admission fee status: Pending, Paid, Exempted" },
+        "createdAt": { "type": "string", "maxLength": 64, "description": "Creation timestamp" },
+        "updatedAt": { "type": "string", "maxLength": 64, "description": "Last update timestamp" }
+      },
+      "required": ["userId", "barcodeNumber", "name", "email", "status"]
+    },
+    "adminUser": {
+      "title": "AdminUser",
+      "description": "Authorized admission committee administrator",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string", "maxLength": 128, "description": "Admin email address" },
+        "role": { "type": "string", "maxLength": 32, "description": "Admin designation" },
+        "assignedAt": { "type": "string", "maxLength": 64, "description": "Timestamp when designated" }
+      },
+      "required": ["email", "role"]
+    }
+  },
+  "firestore": {
+    "/merit_records/{recordId}": {
+      "schema": { "$ref": "#/entities/meritRecord" },
+      "description": "Merit list records for selection rounds and spot/waiting rounds"
+    },
+    "/student_applications/{applicationId}": {
+      "schema": { "$ref": "#/entities/studentApplication" },
+      "description": "Student admission dossiers and uploaded certificates"
+    },
+    "/admins/{adminId}": {
+      "schema": { "$ref": "#/entities/adminUser" },
+      "description": "List of administrative users with privileges"
+    }
+  }
+}

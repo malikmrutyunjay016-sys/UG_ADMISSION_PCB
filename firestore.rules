@@ -1,0 +1,62 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isEmailVerified() {
+      return request.auth.token.email_verified == true;
+    }
+
+    function isBootstrapAdmin() {
+      return isSignedIn() && isEmailVerified() && request.auth.token.email == 'malikmrutyunjay016@gmail.com';
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (isBootstrapAdmin() || exists(/databases/$(database)/documents/admins/$(request.auth.uid)));
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Admins registry
+    match /admins/{adminId} {
+      allow read: if isAdmin();
+      allow write: if isBootstrapAdmin() && isValidId(adminId);
+    }
+
+    // Merit records (Selection Rounds & Spot / Waiting Rounds)
+    match /merit_records/{recordId} {
+      // Public admission merit lists are publicly searchable; admin and OIC staff can ingest, reflect, and update records
+      allow read, write: if true;
+    }
+
+    // Student Applications & Document Uploads
+    match /student_applications/{applicationId} {
+      allow get: if isValidId(applicationId) && (isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid));
+      allow list: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow create: if isSignedIn() && isValidId(applicationId) && incoming().userId == request.auth.uid;
+      allow update: if isValidId(applicationId) && (
+        isAdmin() || 
+        (isSignedIn() && existing().userId == request.auth.uid && incoming().userId == request.auth.uid)
+      );
+      allow delete: if isAdmin() && isValidId(applicationId);
+    }
+  }
+}
