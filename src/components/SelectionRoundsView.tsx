@@ -13,7 +13,8 @@ import {
   Clock,
   Phone,
   Mail,
-  UserCheck
+  UserCheck,
+  Ticket
 } from 'lucide-react';
 
 interface SelectionRoundsViewProps {
@@ -21,6 +22,22 @@ interface SelectionRoundsViewProps {
   onSelectCandidate: (candidate: MeritRecord) => void;
   onOpenAdmin: () => void;
 }
+
+const cleanApplicantName = (name?: string) => {
+  if (!name) return 'Student Candidate';
+  if (name.includes('@')) {
+    const username = name.split('@')[0];
+    return username
+      .replace(/[._+-]+/g, ' ')
+      .trim()
+      .split(' ')
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+      .join(' ');
+  }
+  return name;
+};
+
+import { buildTokenMap, getStandardDateKey, getRecordTimestamp, getTokenForCandidate } from '../utils/tokenManager';
 
 export const SelectionRoundsView: React.FC<SelectionRoundsViewProps> = ({
   records,
@@ -31,6 +48,13 @@ export const SelectionRoundsView: React.FC<SelectionRoundsViewProps> = ({
   const [selectedStream, setSelectedStream] = useState<StreamType | 'All'>('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [copiedBarcode, setCopiedBarcode] = useState<string | null>(null);
+
+  // Fixed daily token numbers: immutable per student for each reporting day.
+  // The assigned token numbers are permanently fixed for an applicant and NEVER change
+  // when any applicant is removed from the list, undone, or marked absent.
+  const tokenMap = useMemo(() => {
+    return buildTokenMap(records, selectedRound);
+  }, [records, selectedRound]);
 
   // Filter and sort selection records
   const filteredRecords = useMemo(() => {
@@ -47,18 +71,35 @@ export const SelectionRoundsView: React.FC<SelectionRoundsViewProps> = ({
         const matchesMobile = (r.mobileNumber || r.mobile || '').toLowerCase().includes(q);
         const matchesEmail = (r.email || '').toLowerCase().includes(q);
         const matchesSubject = (r.majorSubject || r.subject || '').toLowerCase().includes(q);
-        return matchesBarcode || matchesName || matchesMobile || matchesEmail || matchesSubject;
+        const tokenVal = getTokenForCandidate(r, tokenMap);
+        const matchesToken = tokenVal > 0 ? (
+          `token #${tokenVal}`.includes(q) || 
+          `token ${tokenVal}`.includes(q) || 
+          `#${tokenVal}` === q || 
+          String(tokenVal) === q
+        ) : false;
+        return matchesBarcode || matchesName || matchesMobile || matchesEmail || matchesSubject || matchesToken;
       }
       return true;
     });
 
-    // Sort by reporting date/time (using updatedAt as proxy for exact action time)
+    // Sort chronologically by reporting day and arrival/token order
     return [...list].sort((a, b) => {
-      const timeA = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
-      const timeB = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
-      return timeA - timeB; // Oldest first (chronological)
+      const dayA = getStandardDateKey(a);
+      const dayB = getStandardDateKey(b);
+      if (dayA !== dayB) return dayA.localeCompare(dayB);
+
+      const tokenA = getTokenForCandidate(a, tokenMap) || 999999;
+      const tokenB = getTokenForCandidate(b, tokenMap) || 999999;
+      if (tokenA !== tokenB) return tokenA - tokenB;
+
+      const timeA = getRecordTimestamp(a);
+      const timeB = getRecordTimestamp(b);
+      if (timeA !== timeB) return timeA - timeB;
+
+      return (a.barcodeNumber || a.id).localeCompare(b.barcodeNumber || b.id);
     });
-  }, [records, selectedRound, selectedStream, searchQuery]);
+  }, [records, selectedRound, selectedStream, searchQuery, tokenMap]);
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -84,7 +125,7 @@ export const SelectionRoundsView: React.FC<SelectionRoundsViewProps> = ({
 
         <div className="flex items-center gap-2.5">
           <button
-            onClick={() => exportCandidatesToExcel(filteredRecords, `Panchayat_College_${selectedRound}_Reported.xlsx`)}
+            onClick={() => exportCandidatesToExcel(filteredRecords, `Panchayat_College_${selectedRound}_Reported.xlsx`, tokenMap)}
             className="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 hover:border-cyan-500/40 text-xs font-semibold text-slate-200 hover:text-white transition-colors flex items-center gap-1.5"
           >
             <Download className="w-3.5 h-3.5 text-cyan-400" />
@@ -148,7 +189,7 @@ export const SelectionRoundsView: React.FC<SelectionRoundsViewProps> = ({
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Filter Reported Candidates by Barcode, Name, or Mobile..."
+            placeholder="Filter Reported Candidates by Token, Barcode, Name, or Mobile..."
             className="w-full bg-[#070b0e] border border-slate-800 rounded-lg pl-9 pr-4 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500/60"
           />
           {searchQuery && (
@@ -171,6 +212,7 @@ export const SelectionRoundsView: React.FC<SelectionRoundsViewProps> = ({
                 <th className="py-3 px-3 font-mono">Sl No</th>
                 <th className="py-3 px-3 font-mono">1. Barcode No</th>
                 <th className="py-3 px-3">2. Applicant Name</th>
+                <th className="py-3 px-3 font-mono text-center">Token No</th>
                 <th className="py-3 px-3 font-mono">Reporting Date & Time</th>
                 <th className="py-3 px-3 font-mono">4. Mark(%)</th>
                 <th className="py-3 px-3 font-mono">5 & 6. Social / Selection</th>
@@ -218,14 +260,19 @@ export const SelectionRoundsView: React.FC<SelectionRoundsViewProps> = ({
                       </div>
                     </td>
 
-                    {/* 2. Applicant Name */}
+                    {/* 2. Applicant Name (Email ID omitted as requested) */}
                     <td className="py-3 px-3 whitespace-nowrap">
                       <div className="font-semibold text-white group-hover:text-cyan-300 transition-colors">
-                        {c.applicantName || c.name}
+                        {cleanApplicantName(c.applicantName || c.name)}
                       </div>
-                      <div className="text-[10px] text-slate-500 font-mono">
-                        {c.email}
-                      </div>
+                    </td>
+
+                    {/* Token Number: fixed sequential serial as per daily reporting time (immutable even if applicants are removed from list) */}
+                    <td className="py-3 px-3 font-mono whitespace-nowrap text-center">
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-xs font-bold bg-amber-950/60 text-amber-300 border border-amber-500/40 shadow-[0_0_8px_rgba(245,158,11,0.15)]">
+                        <Ticket className="w-3.5 h-3.5 text-amber-400" />
+                        <span>Token #{getTokenForCandidate(c, tokenMap)}</span>
+                      </span>
                     </td>
 
                     {/* Reporting Date & Time */}

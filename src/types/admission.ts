@@ -44,6 +44,11 @@ export interface MeritRecord {
   status: CandidateStatus;
   reportingDate?: string;
   reportingTime?: string;
+  tokenNumber?: number;        // Fixed daily token number assigned upon reporting (preserved permanently)
+  tokenDate?: string;          // Standardized date key (YYYY-MM-DD) for token sequence scope
+  rollNumber?: string;         // College Class Roll Number (e.g. BS26-001, BA26-045, BC26-012)
+  rollAllottedAt?: string;     // Timestamp when roll number was allotted
+  rollAllottedBy?: string;     // Officer name who allotted roll number
   notes?: string;
   updatedAt?: string;
 }

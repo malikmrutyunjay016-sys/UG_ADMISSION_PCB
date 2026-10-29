@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { MeritRecord, RoundType, StreamType, CandidateStatus } from '../types/admission';
 import { parseExcelFile, exportCandidatesToExcel, downloadSampleTemplate } from '../utils/excelParser';
+import { getNextDailyTokenNumber, assignPermanentDailyToken, getTokenForCandidate } from '../utils/tokenManager';
 import { 
   X, 
   Search, 
@@ -96,13 +97,20 @@ export const OicReportingConsole: React.FC<OicReportingConsoleProps> = ({
     const dateStr = now.toISOString().split('T')[0];
     const timeStr = now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
     
+    // Assign next permanent daily token number or retrieve existing token number if candidate was previously assigned
+    const tokenInfo = assignPermanentDailyToken(candidate, records, dateStr);
+    const tokenNumber = tokenInfo.tokenNumber;
+    const tokenDate = tokenInfo.tokenDate;
+
     const updated: MeritRecord = {
       ...candidate,
       status: 'Reported',
       admissionDate: dateStr,
       reportingDate: dateStr,
-      reportingTime: timeStr,
-      notes: `Reported at ${adminSession?.desk || 'OIC Desk'} on ${dateStr} at ${timeStr}`,
+      reportingTime: candidate.reportingTime || timeStr,
+      tokenNumber,
+      tokenDate,
+      notes: `Reported at ${adminSession?.desk || 'OIC Desk'} on ${dateStr} at ${timeStr} (Token #${tokenNumber})`,
       updatedAt: now.toISOString()
     };
     await onUpdateRecord(updated);
@@ -120,7 +128,13 @@ export const OicReportingConsole: React.FC<OicReportingConsoleProps> = ({
       admissionDate: '',
       reportingDate: '',
       reportingTime: '',
-      notes: `Reporting reverted / undone by ${adminSession?.name || 'OIC'} on ${now.toLocaleDateString('en-IN')}`,
+      // DO NOT clear or change tokenNumber and tokenDate!
+      // This ensures that:
+      // 1. If candidate is reported again later, they keep the same token number.
+      // 2. The token numbers of other students for that day NEVER shift or change.
+      tokenNumber: candidateToUndo.tokenNumber,
+      tokenDate: candidateToUndo.tokenDate,
+      notes: `Reporting reverted / undone by ${adminSession?.name || 'OIC'} on ${now.toLocaleDateString('en-IN')}${candidateToUndo.tokenNumber ? ` (Token #${candidateToUndo.tokenNumber} preserved)` : ''}`,
       updatedAt: now.toISOString()
     };
     await onUpdateRecord(updated);
@@ -555,6 +569,13 @@ export const OicReportingConsole: React.FC<OicReportingConsoleProps> = ({
                             <div className="font-semibold text-white group-hover:text-cyan-300 transition-colors">
                               {c.applicantName || c.name}
                             </div>
+                            {getTokenForCandidate(c) > 0 && (
+                              <div className="mt-0.5">
+                                <span className="inline-flex items-center gap-1 font-mono text-[10px] font-bold text-amber-300 bg-amber-950/60 px-1.5 py-0.5 rounded border border-amber-500/30">
+                                  Token #{getTokenForCandidate(c)}
+                                </span>
+                              </div>
+                            )}
                           </td>
 
                           {/* 3. Admission Date */}
@@ -880,10 +901,15 @@ export const OicReportingConsole: React.FC<OicReportingConsoleProps> = ({
                 Are you sure you want to undo the reporting status for candidate{' '}
                 <strong className="text-white">{candidateToUndo.applicantName || candidateToUndo.name}</strong> ({candidateToUndo.barcodeNumber})?
               </p>
-              <div className="bg-[#070b0e] p-3 rounded-xl border border-slate-800 text-[11px] font-mono space-y-1 text-slate-400">
+              <div className="bg-[#070b0e] p-3 rounded-xl border border-slate-800 text-[11px] font-mono space-y-1.5 text-slate-400">
                 <div>Current Status: <span className="text-emerald-400 font-bold">{candidateToUndo.status}</span></div>
+                {candidateToUndo.tokenNumber && (
+                  <div>Assigned Daily Token: <span className="text-amber-300 font-bold">Token #{candidateToUndo.tokenNumber}</span> <span className="text-emerald-400 text-[10px]">(Preserved)</span></div>
+                )}
                 <div>Reported Time: <span className="text-slate-200">{candidateToUndo.reportingTime || 'N/A'}</span></div>
-                <div className="pt-1 text-amber-300">This will revert the status back to Selected and clear the reporting timestamp.</div>
+                <div className="pt-1 text-amber-300">
+                  Status will be reverted to Selected. Candidate's assigned token number {candidateToUndo.tokenNumber ? `(#${candidateToUndo.tokenNumber})` : ''} remains fixed and permanently preserved.
+                </div>
               </div>
 
               <div className="flex justify-end gap-2 pt-3 border-t border-slate-800">

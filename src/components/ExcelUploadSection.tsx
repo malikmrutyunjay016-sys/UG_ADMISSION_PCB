@@ -166,6 +166,10 @@ export const ExcelUploadSection: React.FC<ExcelUploadSectionProps> = ({
     }
   };
 
+  if (!isAdmin) {
+    return null;
+  }
+
   return (
     <div className="bg-[#0b1016] border border-cyan-800/50 rounded-2xl p-6 sm:p-8 space-y-6 shadow-2xl relative overflow-hidden">
       {/* Top Background Glow */}

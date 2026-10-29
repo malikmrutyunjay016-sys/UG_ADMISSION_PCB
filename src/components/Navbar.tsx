@@ -1,21 +1,27 @@
 import React from 'react';
 import { User } from '../firebase';
-import { ShieldCheck, LogOut, KeyRound } from 'lucide-react';
+import { ShieldCheck, LogOut, KeyRound, FileCheck, Hash } from 'lucide-react';
 import { AdminSession } from './AdminLoginModal';
 
-export type NavTab = 'home' | 'selection' | 'spot' | 'guide' | 'admin' | 'oic';
+export type NavTab = 'home' | 'selection' | 'spot' | 'guide' | 'admin' | 'oic' | 'verification' | 'rollno';
 
 interface NavbarProps {
   currentUser: User | null;
   isAdmin: boolean;
   adminSession?: AdminSession | null;
   canAccessOicReporting: boolean;
+  canAccessVerification?: boolean;
+  canAccessOicRollNo?: boolean;
+  reportingCount?: number;
+  verifiedCount?: number;
   activeTab: NavTab;
   setActiveTab: (tab: NavTab) => void;
   onOpenTracker: () => void;
   onOpenAdmin: () => void;
   onOpenAdminLogin: () => void;
   onOpenOicReporting: () => void;
+  onOpenVerification?: () => void;
+  onOpenOicRollNo?: () => void;
   onAdminLogout?: () => void;
 }
 
@@ -23,11 +29,19 @@ export const Navbar: React.FC<NavbarProps> = ({
   currentUser,
   isAdmin,
   adminSession,
+  canAccessOicReporting,
+  canAccessVerification = false,
+  canAccessOicRollNo = false,
+  reportingCount = 0,
+  verifiedCount = 0,
   activeTab,
   setActiveTab,
   onOpenTracker,
   onAdminLogout,
 }) => {
+
+  const isVO = adminSession?.role === 'Verifying Officer';
+  const isRollNo = adminSession?.role === 'OIC roll no';
 
   return (
     <header className="sticky top-0 z-40 bg-[#070b0e]/95 backdrop-blur-md border-b border-cyan-950/40">
@@ -50,7 +64,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
 
         {/* Zone 2: navigation links (All pages in menu like Selection Round) */}
-        <nav className="hidden md:flex items-center gap-4 lg:gap-5 text-sm font-medium">
+        <nav className="hidden md:flex items-center gap-3 lg:gap-4 text-sm font-medium">
           <button
             onClick={() => setActiveTab('home')}
             className={`whitespace-nowrap transition-colors py-1 border-b-2 cursor-pointer ${
@@ -82,31 +96,73 @@ export const Navbar: React.FC<NavbarProps> = ({
             Spot & Waiting
           </button>
 
-          {/* OIC Reporting Console as a page in menu */}
+          {/* Verification Officer Console: tab in navigation bar */}
           <button
-            onClick={() => setActiveTab('oic')}
+            onClick={() => setActiveTab('verification')}
             className={`whitespace-nowrap transition-colors py-1 border-b-2 cursor-pointer flex items-center gap-1.5 ${
-              activeTab === 'oic' 
+              activeTab === 'verification' 
                 ? 'border-cyan-400 text-cyan-400 font-semibold' 
                 : 'border-transparent text-slate-300 hover:text-white'
             }`}
           >
-            <span className="w-2 h-2 rounded-full bg-cyan-400" />
-            <span>OIC Reporting Console</span>
+            <FileCheck className="w-4 h-4 text-cyan-400" />
+            <span>Verification Officer Console</span>
+            {reportingCount > 0 && (
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-cyan-500/20 text-cyan-300 border border-cyan-500/40">
+                {reportingCount}
+              </span>
+            )}
           </button>
 
-          {/* Admin Console as a page in menu */}
-          <button
-            onClick={() => setActiveTab('admin')}
-            className={`whitespace-nowrap transition-colors py-1 border-b-2 cursor-pointer flex items-center gap-1.5 ${
-              activeTab === 'admin' 
-                ? 'border-cyan-400 text-cyan-400 font-semibold' 
-                : 'border-transparent text-slate-300 hover:text-white'
-            }`}
-          >
-            <ShieldCheck className="w-4 h-4 text-cyan-400" />
-            <span>Admin Console</span>
-          </button>
+          {/* OIC Roll Number Console: only visible to Admin or OIC Roll Number */}
+          {canAccessOicRollNo && (
+            <button
+              onClick={() => setActiveTab('rollno')}
+              className={`whitespace-nowrap transition-colors py-1 border-b-2 cursor-pointer flex items-center gap-1.5 ${
+                activeTab === 'rollno' 
+                  ? 'border-cyan-400 text-cyan-400 font-semibold' 
+                  : 'border-transparent text-slate-300 hover:text-white'
+              }`}
+            >
+              <Hash className="w-4 h-4 text-cyan-400" />
+              <span>oic roll number</span>
+              {verifiedCount > 0 && (
+                <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-teal-500/20 text-teal-300 border border-teal-500/40">
+                  {verifiedCount}
+                </span>
+              )}
+            </button>
+          )}
+
+          {/* OIC Reporting Console: only visible to OIC reporting or Admin */}
+          {canAccessOicReporting && (
+            <button
+              onClick={() => setActiveTab('oic')}
+              className={`whitespace-nowrap transition-colors py-1 border-b-2 cursor-pointer flex items-center gap-1.5 ${
+                activeTab === 'oic' 
+                  ? 'border-cyan-400 text-cyan-400 font-semibold' 
+                  : 'border-transparent text-slate-300 hover:text-white'
+              }`}
+            >
+              <span className="w-2 h-2 rounded-full bg-cyan-400" />
+              <span>OIC Reporting Console</span>
+            </button>
+          )}
+
+          {/* Admin Console as a page in menu: only visible to Admin */}
+          {isAdmin && (
+            <button
+              onClick={() => setActiveTab('admin')}
+              className={`whitespace-nowrap transition-colors py-1 border-b-2 cursor-pointer flex items-center gap-1.5 ${
+                activeTab === 'admin' 
+                  ? 'border-cyan-400 text-cyan-400 font-semibold' 
+                  : 'border-transparent text-slate-300 hover:text-white'
+              }`}
+            >
+              <ShieldCheck className="w-4 h-4 text-cyan-400" />
+              <span>Admin Console</span>
+            </button>
+          )}
 
           <button
             onClick={() => setActiveTab('guide')}
@@ -125,16 +181,26 @@ export const Navbar: React.FC<NavbarProps> = ({
           {adminSession || isAdmin ? (
             <div className="flex items-center gap-2">
               <button
-                onClick={() => setActiveTab('admin')}
+                onClick={() => {
+                  if (isAdmin) {
+                    setActiveTab('admin');
+                  } else if (isRollNo) {
+                    setActiveTab('rollno');
+                  } else if (isVO) {
+                    setActiveTab('verification');
+                  } else if (canAccessOicReporting) {
+                    setActiveTab('oic');
+                  }
+                }}
                 className={`hidden sm:flex items-center gap-1.5 text-xs font-mono px-2.5 py-1 rounded-lg border transition-all cursor-pointer ${
-                  activeTab === 'admin'
+                  (isAdmin && activeTab === 'admin') || (isRollNo && activeTab === 'rollno') || (isVO && activeTab === 'verification') || (!isAdmin && !isRollNo && !isVO && activeTab === 'oic')
                     ? 'bg-cyan-950 border-cyan-400 text-cyan-300'
                     : 'bg-slate-900 border-slate-800 text-slate-300 hover:border-cyan-500/40'
                 }`}
-                title="View Admin Central Console"
+                title={isAdmin ? "View Admin Central Console" : isRollNo ? "View OIC Roll Number Console" : isVO ? "View Verification Officer Console" : "View OIC Reporting Console"}
               >
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                <span className="truncate max-w-[110px]">{adminSession?.adminId || currentUser?.email || 'Admin'}</span>
+                <span className="truncate max-w-[110px]">{adminSession?.name || adminSession?.adminId || currentUser?.email || 'Officer'}</span>
               </button>
 
               {onAdminLogout && (
@@ -180,18 +246,48 @@ export const Navbar: React.FC<NavbarProps> = ({
           Spot & Waiting
         </button>
         <button
-          onClick={() => setActiveTab('oic')}
-          className={`whitespace-nowrap px-2.5 py-1 text-cyan-300 font-semibold bg-cyan-950/80 border border-cyan-500/40 rounded-lg flex items-center gap-1 shrink-0 ${activeTab === 'oic' ? 'ring-1 ring-cyan-400 text-cyan-200' : ''}`}
+          onClick={() => setActiveTab('verification')}
+          className={`whitespace-nowrap px-2.5 py-1 text-cyan-300 font-semibold bg-cyan-950/80 border border-cyan-500/40 rounded-lg flex items-center gap-1 shrink-0 ${activeTab === 'verification' ? 'ring-1 ring-cyan-400 text-cyan-200' : ''}`}
         >
-          <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
-          <span>OIC Reporting</span>
+          <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
+          <span>Verification Desk</span>
+          {reportingCount > 0 && (
+            <span className="px-1 py-0.2 rounded-full text-[9px] font-mono bg-cyan-500/30 text-cyan-300">
+              {reportingCount}
+            </span>
+          )}
         </button>
-        <button
-          onClick={() => setActiveTab('admin')}
-          className={`whitespace-nowrap px-2 py-1 ${activeTab === 'admin' ? 'text-cyan-400 font-semibold' : 'text-slate-400'}`}
-        >
-          Admin Console
-        </button>
+        {canAccessOicRollNo && (
+          <button
+            onClick={() => setActiveTab('rollno')}
+            className={`whitespace-nowrap px-2.5 py-1 text-teal-300 font-semibold bg-teal-950/80 border border-teal-500/40 rounded-lg flex items-center gap-1 shrink-0 ${activeTab === 'rollno' ? 'ring-1 ring-teal-400 text-teal-200' : ''}`}
+          >
+            <Hash className="w-3 h-3 text-teal-400" />
+            <span>oic roll number</span>
+            {verifiedCount > 0 && (
+              <span className="px-1 py-0.2 rounded-full text-[9px] font-mono bg-teal-500/30 text-teal-300">
+                {verifiedCount}
+              </span>
+            )}
+          </button>
+        )}
+        {canAccessOicReporting && (
+          <button
+            onClick={() => setActiveTab('oic')}
+            className={`whitespace-nowrap px-2.5 py-1 text-cyan-300 font-semibold bg-cyan-950/80 border border-cyan-500/40 rounded-lg flex items-center gap-1 shrink-0 ${activeTab === 'oic' ? 'ring-1 ring-cyan-400 text-cyan-200' : ''}`}
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+            <span>OIC Reporting</span>
+          </button>
+        )}
+        {isAdmin && (
+          <button
+            onClick={() => setActiveTab('admin')}
+            className={`whitespace-nowrap px-2 py-1 ${activeTab === 'admin' ? 'text-cyan-400 font-semibold' : 'text-slate-400'}`}
+          >
+            Admin Console
+          </button>
+        )}
         <button
           onClick={() => setActiveTab('guide')}
           className={`whitespace-nowrap px-2 py-1 ${activeTab === 'guide' ? 'text-cyan-400 font-semibold' : 'text-slate-400'}`}

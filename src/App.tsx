@@ -16,8 +16,10 @@ import {
   doc, 
   getDocs,
 } from './firebase';
+import { ShieldAlert, ArrowLeft } from 'lucide-react';
 import { MeritRecord, VacancySeat, DocumentItem } from './types/admission';
 import { INITIAL_MERIT_RECORDS, VACANCY_DATA } from './data/seedData';
+import { syncRecordsWithLedger, isMarkedReportedByOic } from './utils/tokenManager';
 import { Navbar, NavTab } from './components/Navbar';
 import { HeroSection } from './components/HeroSection';
 import { SelectionRoundsView } from './components/SelectionRoundsView';
@@ -28,9 +30,12 @@ import { AdminLoginModal, AdminSession } from './components/AdminLoginModal';
 import { AdminLoginCard } from './components/AdminLoginCard';
 import { StatusTrackerModal } from './components/StatusTrackerModal';
 import { OicReportingConsole } from './components/OicReportingConsole';
+import { VerificationOfficerConsole } from './components/VerificationOfficerConsole';
+import { OicRollNumberConsole } from './components/OicRollNumberConsole';
 import { ExcelUploadSection } from './components/ExcelUploadSection';
 import { AdmissionMetrics } from './components/AdmissionMetrics';
 import { Footer } from './components/Footer';
+import { isVerifiedForRollAllotment } from './utils/authCredentials';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -61,13 +66,13 @@ export default function App() {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed;
+          return syncRecordsWithLedger(parsed);
         }
       }
     } catch {
       // ignore
     }
-    return INITIAL_MERIT_RECORDS;
+    return syncRecordsWithLedger(INITIAL_MERIT_RECORDS);
   });
   const [vacancies] = useState<VacancySeat[]>(VACANCY_DATA);
 
@@ -80,15 +85,16 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  // Check if current user is admin
-  // Authorized either via Admin ID/Password session OR Google Admin email
+  // Check if current user is admin (Super Admin central authority)
+  // Authorized either via Admin ID/Password session (Super Admin) OR Google Admin email
   const isAdmin = Boolean(
-    adminSession !== null ||
+    adminSession?.role === 'Super Admin' ||
     currentUser?.email === 'malikmrutyunjay016@gmail.com' ||
-    (currentUser && currentUser.email?.endsWith('@panchayatcollege.ac.in'))
+    (currentUser && currentUser.email?.endsWith('@panchayatcollege.ac.in') && !currentUser.email?.includes('rollno') && !currentUser.email?.includes('reporting'))
   );
 
   // Check if current user can access OIC Reporting Console:
+  // Strictly restricted to 'OIC reporting' officers or central Admin
   const canAccessOicReporting = Boolean(
     isAdmin ||
     adminSession?.role === 'Super Admin' ||
@@ -97,9 +103,43 @@ export default function App() {
     (currentUser && currentUser.email?.toLowerCase().includes('reporting') && currentUser.email?.endsWith('@panchayatcollege.ac.in'))
   );
 
+  // Check if current user can access Verification Officer Console:
+  // Strictly restricted to 'Verifying Officer' or central Admin
+  const canAccessVerification = Boolean(
+    isAdmin ||
+    adminSession?.role === 'Super Admin' ||
+    adminSession?.role === 'Verifying Officer' ||
+    currentUser?.email === 'malikmrutyunjay016@gmail.com' ||
+    (currentUser && currentUser.email?.toLowerCase().includes('verify') && currentUser.email?.endsWith('@panchayatcollege.ac.in'))
+  );
+
+  // Check if current user can access OIC Roll Number Console:
+  // Strictly restricted to 'OIC roll no' officers or central Admin
+  const canAccessOicRollNo = Boolean(
+    isAdmin ||
+    adminSession?.role === 'Super Admin' ||
+    adminSession?.role === 'OIC roll no' ||
+    currentUser?.email === 'malikmrutyunjay016@gmail.com' ||
+    (currentUser && currentUser.email?.toLowerCase().includes('rollno') && currentUser.email?.endsWith('@panchayatcollege.ac.in'))
+  );
+
+  // Total count of applicants marked reported in OIC reporting console for badge indicator
+  const reportingApplicantsCount = meritRecords.filter(isMarkedReportedByOic).length;
+
+  // Total count of verified applicants transferred to OIC Roll Number Console
+  const verifiedApplicantsCount = meritRecords.filter(isVerifiedForRollAllotment).length;
+
   const handleAdminLoginSuccess = (session: AdminSession) => {
     setAdminSession(session);
-    setActiveTab('admin');
+    if (session.role === 'OIC roll no') {
+      setActiveTab('rollno');
+    } else if (session.role === 'Verifying Officer') {
+      setActiveTab('verification');
+    } else if (session.role === 'OIC reporting') {
+      setActiveTab('oic');
+    } else {
+      setActiveTab('admin');
+    }
   };
 
   const handleAdminLogout = () => {
@@ -156,9 +196,10 @@ export default function App() {
             });
 
             const loaded = Array.from(studentMap.values()).sort((a, b) => (a.rank || 999) - (b.rank || 999));
-            setMeritRecords(loaded);
+            const synced = syncRecordsWithLedger(loaded);
+            setMeritRecords(synced);
             try {
-              localStorage.setItem('pcb_merit_records', JSON.stringify(loaded));
+              localStorage.setItem('pcb_merit_records', JSON.stringify(synced));
             } catch {
               // ignore
             }
@@ -237,7 +278,9 @@ export default function App() {
       studentMap.set(bKey, r);
     });
 
-    const updated = Array.from(studentMap.values()).sort((a, b) => (a.rank || 999) - (b.rank || 999));
+    const updated = syncRecordsWithLedger(
+      Array.from(studentMap.values()).sort((a, b) => (a.rank || 999) - (b.rank || 999))
+    );
     setMeritRecords(updated);
     try {
       localStorage.setItem('pcb_merit_records', JSON.stringify(updated));
@@ -331,6 +374,36 @@ export default function App() {
     }
   };
 
+  // Batch update multiple records (e.g. batch roll number allotment)
+  const handleBatchUpdateRecords = async (updatedList: MeritRecord[]) => {
+    if (!updatedList || updatedList.length === 0) return;
+    const nowIso = new Date().toISOString();
+    const withTimeList = updatedList.map((r) => ({ ...r, updatedAt: nowIso }));
+
+    setMeritRecords((prev) => {
+      const map = new Map(prev.map((r) => [r.barcodeNumber || r.id, r]));
+      withTimeList.forEach((u) => map.set(u.barcodeNumber || u.id, u));
+      const next = Array.from(map.values());
+      try {
+        localStorage.setItem('pcb_merit_records', JSON.stringify(next));
+      } catch (e) {
+        console.warn('LocalStorage batch error:', e);
+      }
+      return next;
+    });
+
+    try {
+      const writePromises = withTimeList.map((rec) => {
+        const safeDocId = getSafeDocId(rec);
+        const docRef = doc(db, 'merit_records', safeDocId);
+        return setDoc(docRef, rec, { merge: true });
+      });
+      await Promise.all(writePromises);
+    } catch (error) {
+      console.warn('Firestore batch update warning:', error);
+    }
+  };
+
   // Admin: Delete record
   const handleDeleteRecord = async (id: string) => {
     const target = meritRecords.find((r) => r.id === id || r.barcodeNumber === id);
@@ -405,12 +478,18 @@ export default function App() {
         isAdmin={isAdmin}
         adminSession={adminSession}
         canAccessOicReporting={canAccessOicReporting}
+        canAccessVerification={canAccessVerification}
+        canAccessOicRollNo={canAccessOicRollNo}
+        reportingCount={reportingApplicantsCount}
+        verifiedCount={verifiedApplicantsCount}
         activeTab={activeTab}
         setActiveTab={(tab) => setActiveTab(tab)}
         onOpenTracker={() => { setTrackerQuery(''); setIsTrackerOpen(true); }}
         onOpenAdmin={() => setActiveTab('admin')}
         onOpenAdminLogin={() => setActiveTab('admin')}
         onOpenOicReporting={() => setActiveTab('oic')}
+        onOpenVerification={() => setActiveTab('verification')}
+        onOpenOicRollNo={() => setActiveTab('rollno')}
         onAdminLogout={handleAdminLogout}
       />
 
@@ -426,16 +505,18 @@ export default function App() {
               onOpenAdmin={() => setActiveTab('admin')}
             />
 
-            {/* SAMS Merit Excel Sheet Ingestion Component - On Home Page */}
+            {/* SAMS Merit Excel Sheet Ingestion Component - Visible Only to Admin */}
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-16 space-y-10">
-              <ExcelUploadSection
-                records={meritRecords}
-                onAddRecords={handleAddRecords}
-                isAdmin={isAdmin}
-                adminSession={adminSession}
-                onOpenLoginModal={() => setActiveTab('admin')}
-                onOpenOicReporting={() => setActiveTab('oic')}
-              />
+              {isAdmin && (
+                <ExcelUploadSection
+                  records={meritRecords}
+                  onAddRecords={handleAddRecords}
+                  isAdmin={isAdmin}
+                  adminSession={adminSession}
+                  onOpenLoginModal={() => setActiveTab('admin')}
+                  onOpenOicReporting={() => setActiveTab('oic')}
+                />
+              )}
 
               <AdmissionMetrics records={meritRecords} />
             </div>
@@ -481,16 +562,95 @@ export default function App() {
           </div>
         )}
 
+        {/* Verification Officer Console (Page View) */}
+        {activeTab === 'verification' && (
+          canAccessVerification ? (
+            <VerificationOfficerConsole
+              records={meritRecords}
+              onUpdateRecord={handleUpdateRecord}
+              adminSession={adminSession}
+              isAdmin={isAdmin}
+              canAccessOicRollNo={canAccessOicRollNo}
+              onClose={() => setActiveTab('home')}
+              onOpenAdminPortal={() => setActiveTab('admin')}
+              onOpenOicReporting={canAccessOicReporting ? () => setActiveTab('oic') : undefined}
+              onOpenOicRollNo={canAccessOicRollNo ? () => setActiveTab('rollno') : undefined}
+            />
+          ) : (
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-fadeIn">
+              <div className="max-w-md mx-auto bg-[#0b1016] border border-amber-500/30 rounded-2xl p-6 text-center shadow-xl space-y-4 mb-6">
+                <div className="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 mx-auto">
+                  <ShieldAlert className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white font-outfit">Verification Officer Console Restricted</h3>
+                  <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+                    Only authorized Verifying Officers and Central Administrators have permission to view or edit this section. Please sign in below with your Verifying Officer credentials.
+                  </p>
+                </div>
+              </div>
+              <AdminLoginCard
+                onLoginSuccess={handleAdminLoginSuccess}
+                onBackHome={() => setActiveTab('home')}
+              />
+            </div>
+          )
+        )}
+
+        {/* OIC Roll Number Console (Page View) - Only admin / oic roll number can view/edit */}
+        {activeTab === 'rollno' && (
+          canAccessOicRollNo ? (
+            <OicRollNumberConsole
+              records={meritRecords}
+              onUpdateRecord={handleUpdateRecord}
+              onBatchUpdateRecords={handleBatchUpdateRecords}
+              adminSession={adminSession}
+              isAdmin={isAdmin}
+              onClose={() => setActiveTab('home')}
+              onOpenAdminPortal={() => setActiveTab('admin')}
+              onOpenVerification={canAccessVerification ? () => setActiveTab('verification') : undefined}
+              onOpenOicReporting={canAccessOicReporting ? () => setActiveTab('oic') : undefined}
+            />
+          ) : (
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-fadeIn">
+              <div className="max-w-md mx-auto bg-[#0b1016] border border-teal-500/30 rounded-2xl p-6 text-center shadow-xl space-y-4 mb-6">
+                <div className="w-12 h-12 rounded-xl bg-teal-500/10 border border-teal-500/30 flex items-center justify-center text-teal-400 mx-auto">
+                  <ShieldAlert className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white font-outfit">OIC Roll Number Console Restricted</h3>
+                  <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+                    Only authorized OIC Roll Number officers and Central Administrators have permission to view or edit this section. When an applicant is verified in the Verification Officer Console, his/her data is transferred to this section. Please sign in below with your OIC Roll Number credentials.
+                  </p>
+                </div>
+              </div>
+              <AdminLoginCard
+                onLoginSuccess={handleAdminLoginSuccess}
+                onBackHome={() => setActiveTab('home')}
+              />
+            </div>
+          )
+        )}
+
         {/* OIC Physical Reporting & Document Verification Console (Page View) */}
         {activeTab === 'oic' && (
-          <OicReportingConsole
-            onClose={() => setActiveTab('home')}
-            records={meritRecords}
-            onUpdateRecord={handleUpdateRecord}
-            onAddRecords={handleAddRecords}
-            adminSession={adminSession}
-            onOpenAdminPortal={() => setActiveTab('admin')}
-          />
+          canAccessOicReporting ? (
+            <OicReportingConsole
+              onClose={() => setActiveTab('home')}
+              records={meritRecords}
+              onUpdateRecord={handleUpdateRecord}
+              onAddRecords={handleAddRecords}
+              adminSession={adminSession}
+              onOpenAdminPortal={() => setActiveTab('admin')}
+            />
+          ) : (
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-fadeIn">
+              <AdminLoginCard
+                onLoginSuccess={handleAdminLoginSuccess}
+                onBackHome={() => setActiveTab('home')}
+              />
+            </div>
+          )
         )}
 
         {/* Admin Excel & Merit Management Portal (Page View) */}
@@ -498,10 +658,41 @@ export default function App() {
           <div className="animate-fadeIn">
             {!isAdmin ? (
               <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                <AdminLoginCard
-                  onLoginSuccess={handleAdminLoginSuccess}
-                  onBackHome={() => setActiveTab('home')}
-                />
+                {adminSession ? (
+                  <div className="max-w-md mx-auto bg-[#0b1016] border border-amber-500/30 rounded-2xl p-6 text-center shadow-xl space-y-4 animate-fadeIn">
+                    <div className="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 mx-auto">
+                      <ShieldAlert className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h3 className="text-base font-bold text-white font-outfit">Admin Console Restricted</h3>
+                      <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+                        Only administrators have access to view and manage the Central Admin Console. You are currently logged in as <span className="text-cyan-400 font-mono font-semibold">{adminSession.name || adminSession.adminId}</span> ({adminSession.role}).
+                      </p>
+                    </div>
+                    <div className="flex flex-col sm:flex-row gap-2.5 justify-center pt-2">
+                      {canAccessOicReporting && (
+                        <button
+                          onClick={() => setActiveTab('oic')}
+                          className="px-4 py-2 bg-gradient-to-r from-cyan-500 to-teal-500 hover:from-cyan-400 hover:to-teal-400 text-slate-950 font-bold rounded-xl text-xs transition-all shadow-md cursor-pointer"
+                        >
+                          Go to OIC Reporting Console
+                        </button>
+                      )}
+                      <button
+                        onClick={() => setActiveTab('home')}
+                        className="px-4 py-2 bg-[#070b0e] hover:bg-slate-800 border border-slate-700 text-slate-300 font-medium rounded-xl text-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+                      >
+                        <ArrowLeft className="w-3.5 h-3.5" />
+                        <span>Return to Home</span>
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <AdminLoginCard
+                    onLoginSuccess={handleAdminLoginSuccess}
+                    onBackHome={() => setActiveTab('home')}
+                  />
+                )}
               </div>
             ) : (
               <AdminPortal

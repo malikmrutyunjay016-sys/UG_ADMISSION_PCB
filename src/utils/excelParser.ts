@@ -1,5 +1,6 @@
 import * as XLSX from 'xlsx';
 import { MeritRecord, RoundType, CandidateStatus, StreamType } from '../types/admission';
+import { getTokenForCandidate } from './tokenManager';
 
 // Helper to convert Excel serial dates or various date string formats to standard YYYY-MM-DD
 function parseExcelDate(val: any): string {
@@ -388,25 +389,33 @@ export function parseExcelFile(
 /**
  * Exports candidate list into an Excel workbook containing the exact 10 admission fields.
  */
-export function exportCandidatesToExcel(candidates: MeritRecord[], fileName = 'Panchayat_College_Merit_List.xlsx') {
-  const exportData = candidates.map((c, i) => ({
-    'Sl No': i + 1,
-    'Barcode No': c.barcodeNumber,
-    'Applicant Name': c.applicantName || c.name,
-    'Admission Date': c.admissionDate || c.reportingDate || '2026-11-06',
-    'Mark(%)': c.percentage,
-    'Social Category': c.socialCategory || c.category || 'GEN',
-    'Selection Category': c.selectionCategory || 'UR',
-    'Mobile Number': c.mobileNumber || c.mobile,
-    'Board Name': c.boardName || 'CHSE, Odisha',
-    'Stream': c.stream,
-    'Major Subject': c.majorSubject || c.subject,
-    'Selection Round': c.roundType.replace(/_/g, ' ').toUpperCase(),
-    'Current Status': c.status,
-    'Reporting Time': c.reportingTime || '10:00 AM - 01:00 PM',
-    'Email Address': c.email,
-    'Remarks / Notes': c.notes || ''
-  }));
+export function exportCandidatesToExcel(
+  candidates: MeritRecord[], 
+  fileName = 'Panchayat_College_Merit_List.xlsx',
+  tokenMap?: Map<string, number>
+) {
+  const exportData = candidates.map((c, i) => {
+    const tokenNum = getTokenForCandidate(c, tokenMap);
+    return {
+      'Sl No': i + 1,
+      'Barcode No': c.barcodeNumber,
+      'Applicant Name': c.applicantName || c.name,
+      ...(tokenNum > 0 ? { 'Token No': tokenNum } : {}),
+      'Admission Date': c.admissionDate || c.reportingDate || '2026-11-06',
+      'Mark(%)': c.percentage,
+      'Social Category': c.socialCategory || c.category || 'GEN',
+      'Selection Category': c.selectionCategory || 'UR',
+      'Mobile Number': c.mobileNumber || c.mobile,
+      'Board Name': c.boardName || 'CHSE, Odisha',
+      'Stream': c.stream,
+      'Major Subject': c.majorSubject || c.subject,
+      'Selection Round': c.roundType.replace(/_/g, ' ').toUpperCase(),
+      'Current Status': c.status,
+      'Reporting Time': c.reportingTime || '10:00 AM - 01:00 PM',
+      'Email Address': c.email,
+      'Remarks / Notes': c.notes || ''
+    };
+  });
 
   const worksheet = XLSX.utils.json_to_sheet(exportData);
   const workbook = XLSX.utils.book_new();

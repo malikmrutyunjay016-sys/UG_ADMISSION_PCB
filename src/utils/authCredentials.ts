@@ -1,4 +1,4 @@
-export type OfficerRole = 'Super Admin' | 'OIC reporting' | 'OIC roll no';
+export type OfficerRole = 'Super Admin' | 'OIC reporting' | 'OIC roll no' | 'Verifying Officer';
 
 export interface OfficerCredential {
   id: string;
@@ -12,7 +12,29 @@ export interface OfficerCredential {
 }
 
 export const INITIAL_OFFICER_CREDENTIALS: OfficerCredential[] = [
-  // Set 1: OIC Reporting (Desk 1 - Science & Commerce)
+  // Set 1: Verifying Officer (Desk 1 - Science & Commerce)
+  {
+    id: 'vo_desk_1',
+    loginId: 'vo.desk1@panchayatcollege.ac.in',
+    password: 'Verify@2026A',
+    officerName: 'Prof. B. K. Patel',
+    desk: 'Verification Desk-1 (Science & Commerce)',
+    role: 'Verifying Officer',
+    active: true,
+    updatedAt: new Date().toISOString(),
+  },
+  // Set 2: Verifying Officer (Desk 2 - Arts & Social Sciences)
+  {
+    id: 'vo_desk_2',
+    loginId: 'vo.desk2@panchayatcollege.ac.in',
+    password: 'Verify@2026B',
+    officerName: 'Dr. A. K. Mohanty',
+    desk: 'Verification Desk-2 (Arts & Social Sciences)',
+    role: 'Verifying Officer',
+    active: true,
+    updatedAt: new Date().toISOString(),
+  },
+  // Set 3: OIC Reporting (Desk 1 - Science & Commerce)
   {
     id: 'oic_rep_1',
     loginId: 'oic.reporting1@panchayatcollege.ac.in',
@@ -23,7 +45,7 @@ export const INITIAL_OFFICER_CREDENTIALS: OfficerCredential[] = [
     active: true,
     updatedAt: new Date().toISOString(),
   },
-  // Set 2: OIC Reporting (Desk 2 - Arts & Spot Admission)
+  // Set 4: OIC Reporting (Desk 2 - Arts & Spot Admission)
   {
     id: 'oic_rep_2',
     loginId: 'oic.reporting2@panchayatcollege.ac.in',
@@ -34,7 +56,7 @@ export const INITIAL_OFFICER_CREDENTIALS: OfficerCredential[] = [
     active: true,
     updatedAt: new Date().toISOString(),
   },
-  // Set 3: OIC Roll No (Desk 1 - Science Allotment)
+  // Set 5: OIC Roll No (Desk 1 - Science Allotment)
   {
     id: 'oic_roll_1',
     loginId: 'oic.rollno1@panchayatcollege.ac.in',
@@ -45,7 +67,7 @@ export const INITIAL_OFFICER_CREDENTIALS: OfficerCredential[] = [
     active: true,
     updatedAt: new Date().toISOString(),
   },
-  // Set 4: OIC Roll No (Desk 2 - Arts & Commerce Allotment)
+  // Set 6: OIC Roll No (Desk 2 - Arts & Commerce Allotment)
   {
     id: 'oic_roll_2',
     loginId: 'oic.rollno2@panchayatcollege.ac.in',
@@ -77,6 +99,15 @@ export function getStoredOfficerCredentials(): OfficerCredential[] {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) {
+        // Ensure new VO and OIC Roll No credentials exist even if old cache had only older roles
+        const hasVO = parsed.some((c: OfficerCredential) => c.role === 'Verifying Officer');
+        const hasRollNo = parsed.some((c: OfficerCredential) => c.role === 'OIC roll no');
+        if (!hasVO || !hasRollNo) {
+          const missing = INITIAL_OFFICER_CREDENTIALS.filter(c => !parsed.some((p: OfficerCredential) => p.id === c.id));
+          const merged = [...parsed, ...missing];
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+          return merged;
+        }
         return parsed;
       }
     }
@@ -117,18 +148,42 @@ export function verifyOfficerLogin(loginId: string, passwordInput: string): Offi
     return SUPER_ADMIN_CREDENTIAL;
   }
 
-  // 2. Check OIC Accounts
+  // 2. Check Officer Accounts (OIC Roll No, OIC Reporting & Verifying Officers)
   const list = getStoredOfficerCredentials();
   for (const cred of list) {
     if (!cred.active) continue;
     const credId = cred.loginId.toLowerCase();
     const shortUsername = cred.loginId.split('@')[0].toLowerCase();
     
-    // Accept full email or short username (e.g. "reporting1" or "oic.reporting1@panchayatcollege.ac.in")
-    if ((cleanId === credId || cleanId === shortUsername) && cleanPass === cred.password) {
+    // Quick aliases: e.g. "vo1" for vo.desk1, "roll1" for oic.rollno1, "rep1" for oic.reporting1
+    const alias1 = cred.id === 'vo_desk_1' ? 'vo1' : cred.id === 'vo_desk_2' ? 'vo2' : cred.id === 'oic_roll_1' ? 'roll1' : cred.id === 'oic_roll_2' ? 'roll2' : cred.id === 'oic_rep_1' ? 'rep1' : cred.id === 'oic_rep_2' ? 'rep2' : '';
+    const aliasDesk = cred.id === 'vo_desk_1' ? 'vo.desk1' : cred.id === 'vo_desk_2' ? 'vo.desk2' : cred.id === 'oic_roll_1' ? 'oic.rollno1' : cred.id === 'oic_roll_2' ? 'oic.rollno2' : '';
+
+    if (
+      (cleanId === credId || 
+       cleanId === shortUsername || 
+       (alias1 && cleanId === alias1) ||
+       (aliasDesk && cleanId === aliasDesk)) && 
+      cleanPass === cred.password
+    ) {
       return cred;
     }
   }
 
   return null;
+}
+
+/**
+ * Filter candidates transferred to OIC Roll Number Console.
+ * An applicant's data is transferred to this section when they are verified in the Verification Officer Console.
+ */
+export function isVerifiedForRollAllotment(r: { status?: string; notes?: string; rollNumber?: string }): boolean {
+  if (r.status === 'Rejected') return false;
+  return (
+    r.status === 'Reported & Verified' ||
+    r.status === 'Admission Confirmed' ||
+    Boolean(r.notes?.toLowerCase().includes('verified & approved')) ||
+    Boolean(r.notes?.toLowerCase().includes('documents verified')) ||
+    Boolean(r.rollNumber)
+  );
 }

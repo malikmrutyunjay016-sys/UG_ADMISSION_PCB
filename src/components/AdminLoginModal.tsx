@@ -142,96 +142,156 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
         {/* Content Body */}
         <div className="p-6 space-y-5">
 
-          {/* Quick Account Selector for Super Admin and the 4 OIC Sets */}
+          {/* Quick Account Selector for Super Admin, Verifying Officers, and OIC Sets */}
           <div className="bg-[#070b0e] border border-cyan-900/50 rounded-xl p-3.5 space-y-2.5">
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-semibold text-cyan-300 uppercase tracking-wider flex items-center gap-1.5">
                 <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
-                <span>Select Login Set (4 OIC Sets Available)</span>
+                <span>Select Login Set (2 Verifying Officers + 4 OIC Sets)</span>
               </span>
               <span className="text-[10px] text-slate-400 font-mono">1-Click Auto-Fill</span>
             </div>
 
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              {/* OIC Reporting Set 1 */}
-              <button
-                type="button"
-                onClick={() => handleQuickSelect('oic_rep_1')}
-                className={`p-2 rounded-lg text-left border transition-all cursor-pointer ${
-                  selectedQuickAccount === 'oic_rep_1'
-                    ? 'bg-cyan-950 border-cyan-400 text-cyan-200 shadow-[0_0_10px_rgba(6,182,212,0.2)]'
-                    : 'bg-[#05080b] border-slate-800 text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                <div className="font-semibold text-white text-[11px] flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
-                  <span>Set 1: OIC Reporting (Desk 1)</span>
-                </div>
-                <div className="text-[10px] text-slate-400 font-mono mt-0.5 truncate">
-                  oic.reporting1
-                </div>
-              </button>
+            {/* Verifying Officer Section */}
+            <div className="space-y-1">
+              <span className="text-[10px] font-semibold text-amber-400 uppercase tracking-wider block">
+                Verifying Officers (For Verification Console)
+              </span>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                {/* VO Set 1 */}
+                <button
+                  type="button"
+                  onClick={() => handleQuickSelect('vo_desk_1')}
+                  className={`p-2 rounded-lg text-left border transition-all cursor-pointer ${
+                    selectedQuickAccount === 'vo_desk_1'
+                      ? 'bg-amber-950/80 border-amber-400 text-amber-200 shadow-[0_0_10px_rgba(245,158,11,0.2)]'
+                      : 'bg-[#05080b] border-slate-800 text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  <div className="font-semibold text-white text-[11px] flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                    <span>VO Set 1 (Science & Comm)</span>
+                  </div>
+                  <div className="text-[10px] text-amber-300/80 font-mono mt-0.5 truncate">
+                    vo.desk1 (Pass: Verify@2026A)
+                  </div>
+                </button>
 
-              {/* OIC Reporting Set 2 */}
-              <button
-                type="button"
-                onClick={() => handleQuickSelect('oic_rep_2')}
-                className={`p-2 rounded-lg text-left border transition-all cursor-pointer ${
-                  selectedQuickAccount === 'oic_rep_2'
-                    ? 'bg-cyan-950 border-cyan-400 text-cyan-200 shadow-[0_0_10px_rgba(6,182,212,0.2)]'
-                    : 'bg-[#05080b] border-slate-800 text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                <div className="font-semibold text-white text-[11px] flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
-                  <span>Set 2: OIC Reporting (Desk 2)</span>
-                </div>
-                <div className="text-[10px] text-slate-400 font-mono mt-0.5 truncate">
-                  oic.reporting2
-                </div>
-              </button>
+                {/* VO Set 2 */}
+                <button
+                  type="button"
+                  onClick={() => handleQuickSelect('vo_desk_2')}
+                  className={`p-2 rounded-lg text-left border transition-all cursor-pointer ${
+                    selectedQuickAccount === 'vo_desk_2'
+                      ? 'bg-amber-950/80 border-amber-400 text-amber-200 shadow-[0_0_10px_rgba(245,158,11,0.2)]'
+                      : 'bg-[#05080b] border-slate-800 text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  <div className="font-semibold text-white text-[11px] flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                    <span>VO Set 2 (Arts & Social)</span>
+                  </div>
+                  <div className="text-[10px] text-amber-300/80 font-mono mt-0.5 truncate">
+                    vo.desk2 (Pass: Verify@2026B)
+                  </div>
+                </button>
+              </div>
+            </div>
 
-              {/* OIC Roll No Set 3 */}
-              <button
-                type="button"
-                onClick={() => handleQuickSelect('oic_roll_1')}
-                className={`p-2 rounded-lg text-left border transition-all cursor-pointer ${
-                  selectedQuickAccount === 'oic_roll_1'
-                    ? 'bg-teal-950 border-teal-400 text-teal-200 shadow-[0_0_10px_rgba(20,184,166,0.2)]'
-                    : 'bg-[#05080b] border-slate-800 text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                <div className="font-semibold text-white text-[11px] flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-teal-400" />
-                  <span>Set 3: OIC Roll No (Desk 1)</span>
-                </div>
-                <div className="text-[10px] text-slate-400 font-mono mt-0.5 truncate">
-                  oic.rollno1
-                </div>
-              </button>
+            {/* OIC Roll Number Section */}
+            <div className="space-y-1 pt-1">
+              <span className="text-[10px] font-semibold text-emerald-400 uppercase tracking-wider block">
+                OIC Roll Number Desks
+              </span>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                {/* OIC Roll No Set 1 */}
+                <button
+                  type="button"
+                  onClick={() => handleQuickSelect('oic_roll_1')}
+                  className={`p-2 rounded-lg text-left border transition-all cursor-pointer ${
+                    selectedQuickAccount === 'oic_roll_1'
+                      ? 'bg-emerald-950/80 border-emerald-400 text-emerald-200 shadow-[0_0_10px_rgba(16,185,129,0.2)]'
+                      : 'bg-[#05080b] border-slate-800 text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  <div className="font-semibold text-white text-[11px] flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                    <span>OIC Roll No 1 (Science)</span>
+                  </div>
+                  <div className="text-[10px] text-emerald-300/80 font-mono mt-0.5 truncate">
+                    oic.rollno1 (RollNo@2026A)
+                  </div>
+                </button>
 
-              {/* OIC Roll No Set 4 */}
-              <button
-                type="button"
-                onClick={() => handleQuickSelect('oic_roll_2')}
-                className={`p-2 rounded-lg text-left border transition-all cursor-pointer ${
-                  selectedQuickAccount === 'oic_roll_2'
-                    ? 'bg-teal-950 border-teal-400 text-teal-200 shadow-[0_0_10px_rgba(20,184,166,0.2)]'
-                    : 'bg-[#05080b] border-slate-800 text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                <div className="font-semibold text-white text-[11px] flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-teal-400" />
-                  <span>Set 4: OIC Roll No (Desk 2)</span>
-                </div>
-                <div className="text-[10px] text-slate-400 font-mono mt-0.5 truncate">
-                  oic.rollno2
-                </div>
-              </button>
+                {/* OIC Roll No Set 2 */}
+                <button
+                  type="button"
+                  onClick={() => handleQuickSelect('oic_roll_2')}
+                  className={`p-2 rounded-lg text-left border transition-all cursor-pointer ${
+                    selectedQuickAccount === 'oic_roll_2'
+                      ? 'bg-emerald-950/80 border-emerald-400 text-emerald-200 shadow-[0_0_10px_rgba(16,185,129,0.2)]'
+                      : 'bg-[#05080b] border-slate-800 text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  <div className="font-semibold text-white text-[11px] flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                    <span>OIC Roll No 2 (Arts/Comm)</span>
+                  </div>
+                  <div className="text-[10px] text-emerald-300/80 font-mono mt-0.5 truncate">
+                    oic.rollno2 (RollNo@2026B)
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            {/* OIC Reporting Section */}
+            <div className="space-y-1 pt-1">
+              <span className="text-[10px] font-semibold text-cyan-400 uppercase tracking-wider block">
+                OIC Reporting Desks
+              </span>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                {/* OIC Reporting Set 1 */}
+                <button
+                  type="button"
+                  onClick={() => handleQuickSelect('oic_rep_1')}
+                  className={`p-2 rounded-lg text-left border transition-all cursor-pointer ${
+                    selectedQuickAccount === 'oic_rep_1'
+                      ? 'bg-cyan-950 border-cyan-400 text-cyan-200 shadow-[0_0_10px_rgba(6,182,212,0.2)]'
+                      : 'bg-[#05080b] border-slate-800 text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  <div className="font-semibold text-white text-[11px] flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
+                    <span>Set 1: OIC Reporting (Desk 1)</span>
+                  </div>
+                  <div className="text-[10px] text-slate-400 font-mono mt-0.5 truncate">
+                    oic.reporting1 (Report@2026A)
+                  </div>
+                </button>
+
+                {/* OIC Reporting Set 2 */}
+                <button
+                  type="button"
+                  onClick={() => handleQuickSelect('oic_rep_2')}
+                  className={`p-2 rounded-lg text-left border transition-all cursor-pointer ${
+                    selectedQuickAccount === 'oic_rep_2'
+                      ? 'bg-cyan-950 border-cyan-400 text-cyan-200 shadow-[0_0_10px_rgba(6,182,212,0.2)]'
+                      : 'bg-[#05080b] border-slate-800 text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  <div className="font-semibold text-white text-[11px] flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
+                    <span>Set 2: OIC Reporting (Desk 2)</span>
+                  </div>
+                  <div className="text-[10px] text-slate-400 font-mono mt-0.5 truncate">
+                    oic.reporting2 (Report@2026B)
+                  </div>
+                </button>
+              </div>
             </div>
 
             {/* Super Admin option */}
-            <div className="pt-1 flex items-center justify-between text-xs">
+            <div className="pt-1 flex items-center justify-between text-xs border-t border-slate-800/80">
               <button
                 type="button"
                 onClick={() => handleQuickSelect('super_admin')}
@@ -241,7 +301,7 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
                     : 'text-slate-400 hover:text-slate-200'
                 }`}
               >
-                Super Admin Account (admin@panchayatcollege.ac.in)
+                Super Admin Account (admin / Panchayat@2026)
               </button>
             </div>
           </div>

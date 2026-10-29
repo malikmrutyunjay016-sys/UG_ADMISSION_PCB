@@ -492,7 +492,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
               }`}
             >
               <KeyRound className="w-3.5 h-3.5 text-cyan-400" />
-              <span>OIC Login Credentials (4 Sets)</span>
+              <span>Officer Login Credentials (VO & OIC)</span>
               <span className="ml-1 text-[10px] px-1.5 py-0.5 rounded-full bg-cyan-900/80 text-cyan-200 font-mono">
                 {officerCredentials.length} Sets
               </span>
@@ -1261,7 +1261,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                     onChange={(e) => setFormRole(e.target.value as OfficerRole)}
                     className="w-full bg-[#070b0e] border border-slate-800 rounded-lg px-3 py-2 text-white font-semibold focus:outline-none focus:border-cyan-400"
                   >
-                    <option value="OIC reporting">OIC reporting (Physical Reporting & Verification)</option>
+                    <option value="Verifying Officer">Verifying Officer (Document Verification Desk)</option>
+                    <option value="OIC reporting">OIC reporting (Physical Reporting & Token Desk)</option>
                     <option value="OIC roll no">OIC roll no (Roll Allotment & Admission Confirmation)</option>
                     <option value="Super Admin">Super Admin (Central Control)</option>
                   </select>

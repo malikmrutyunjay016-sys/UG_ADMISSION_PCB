@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { MeritRecord, DocumentItem } from '../types/admission';
 import { User } from '../firebase';
+import { getTokenForCandidate } from '../utils/tokenManager';
 import { 
   X, 
   Search, 
@@ -197,11 +198,16 @@ export const StatusTrackerModal: React.FC<StatusTrackerModalProps> = ({
                 
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-800">
                   <div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-lg font-bold text-white font-outfit">{candidate.name}</span>
                       <span className="px-2.5 py-0.5 rounded-full bg-cyan-950 border border-cyan-500/40 text-cyan-300 font-mono text-xs font-semibold">
                         {candidate.barcodeNumber}
                       </span>
+                      {getTokenForCandidate(candidate) > 0 && (
+                        <span className="px-2.5 py-0.5 rounded-full bg-amber-950/80 border border-amber-500/40 text-amber-300 font-mono text-xs font-bold shadow-[0_0_8px_rgba(245,158,11,0.2)]">
+                          Token #{getTokenForCandidate(candidate)}
+                        </span>
+                      )}
                     </div>
                     <div className="text-xs text-slate-400 mt-1 flex flex-wrap items-center gap-3">
                       <span>Stream: <strong className="text-slate-200">{candidate.stream}</strong></span>
